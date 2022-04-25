@@ -76,8 +76,4 @@ def main():
     return
 
 if __name__ == '__main__':
-    # To print (pipe to file) pretty borders on Windows
-    if sys.platform == 'win32': 
-        sys.stdout.reconfigure(encoding='UTF-8')
-
     main()

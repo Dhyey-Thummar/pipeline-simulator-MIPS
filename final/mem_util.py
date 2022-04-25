@@ -82,6 +82,7 @@ def encode(inst):
         if inst[0] == 'sll' or inst[0] == 'srl':
             try:
                 rd, rt, shamt = [int(i, 0) for i in inst[1:]] # Accepts any base (e.g. 0b, 0o, 0x)
+                
             except:
                 return EARG # Not correct number of arguments
 
@@ -214,7 +215,7 @@ def printHistory(clkHistory):
     # Print header and column titles
     print('╔' + '═'*(6*len(clkHistory)) + '╗')
     print('║', end='')
-    for i in range(len(clkHistory)):
+    for i in range(1, len(clkHistory)+1):
         print(str(i).center(5), end=' ')
     print('║')
     print('╠' + '═'*(6*len(clkHistory)) + '╣')
