@@ -4,17 +4,12 @@ import mem_util as memory
 import mem_util as util
 import sim_stages as stg
 
-
 def main():
     root = Tk()
     root.geometry("3000x3000")
     root.title("Simulator")
-    inputtxt = Text(root, height=10,
-                    width=250,
-                    bg="light yellow")
-    Output = Text(root, height=30,
-                  width=250,
-                  bg="light cyan")
+    inputtxt = Text(root, height=10, width=250, bg="light yellow")
+    Output = Text(root, height=30,width=250,bg="light cyan")
 
     clkHistory2 = []
 
@@ -33,7 +28,7 @@ def main():
             if encoded not in util.ERROR:
                 memory.INST.append(encoded)
             else:
-                # print(f'ERROR @ \'{filename}\':')
+
                 print(f'\tLine {i+1}: \'{program[i]}\'')
                 if encoded == util.EINST:
                     print('\t\tCouldn\'t parse the instruction')
@@ -44,7 +39,6 @@ def main():
                 return
 
     # Print the program as loaded
-
         print()
 
 
@@ -74,12 +68,10 @@ def main():
         # Report if stage was run
             for stage in ['IF', 'ID', 'EX', 'MEM', 'WB']:
                 if util.ran[stage][1] != 0:
-                    idle = ' (idle)' if util.wasIdle[stage] else ''
                     clkHistory[clk].append(
                         (stage, util.ran[stage], util.wasIdle[stage]))
 
             clk += 1
-
 
         print()
         print(f'Program ran in {clk} clocks.')
@@ -89,8 +81,6 @@ def main():
             clkHistory2.append(clkHistory[i])
 
         util.printHistory(clkHistory)
-
-
 
     def Giveout():
         history = [[' ' for i in range(len(clkHistory2))]
@@ -129,8 +119,4 @@ def main():
 
 
 if __name__ == '__main__':
-    # To print (pipe to file) pretty borders on Windows
-    if sys.platform == 'win32':
-        sys.stdout.reconfigure(encoding='UTF-8')
-
     main()
