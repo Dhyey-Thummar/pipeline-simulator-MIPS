@@ -2,12 +2,11 @@ import mem_util as memory
 import mem_util as util
 
 # Control Unit ROM
-# RegDst, ALUSrc, MemToReg, RegWrite, MemRead, MemWrite, Branch, AluOp
-ctrl = {0b000000: (0b1, 0b0, 0b0, 0b1, 0b0, 0b0, 0b0, 0b10), # R-Type
-        0b100011: (0b0, 0b1, 0b1, 0b1, 0b1, 0b0, 0b0, 0b00), # lw
-        0b101011: (0b0, 0b1, 0b0, 0b0, 0b0, 0b1, 0b0, 0b00), # sw
-        0b000100: (0b0, 0b0, 0b0, 0b0, 0b0, 0b0, 0b1, 0b01), # beq
-        0b001000: (0b0, 0b1, 0b0, 0b1, 0b0, 0b0, 0b0, 0b00)} # addi
+# RegDst, ALUSrc, MemToReg, RegWrite, MemRead, MemWrite, AluOp
+ctrl = {0b000000: (0b1, 0b0, 0b0, 0b1, 0b0, 0b0, 0b10), # R-Type
+        0b100011: (0b0, 0b1, 0b1, 0b1, 0b1, 0b0, 0b00), # lw
+        0b101011: (0b0, 0b1, 0b0, 0b0, 0b0, 0b1, 0b00), # sw
+        0b001000: (0b0, 0b1, 0b0, 0b1, 0b0, 0b0, 0b00)} # addi
 
 def EX_fwd():
     # Forwarding Unit
@@ -57,9 +56,6 @@ def ID_hzd():
         memory.FWD['PC_WRITE'] = 0
         memory.FWD['IF_ID_WRITE'] = 0
         memory.FWD['STALL'] = 1
-    elif (memory.ID_EX_CTRL['BRANCH'] == 1 or memory.EX_MEM_CTRL['BRANCH'] == 1) and util.ctrl_hzd:
-        memory.FWD['IF_ID_WRITE'] = 0
-        memory.FWD['STALL'] = 1
     else:
         memory.FWD['PC_WRITE'] = 1
         memory.FWD['IF_ID_WRITE'] = 1
@@ -84,10 +80,7 @@ def IF():
         memory.IF_ID['IR'] = curInst
 
     if memory.FWD['PC_WRITE'] == 1 or not util.data_hzd:
-        # Set own PC (PC Multiplexer)
-        if memory.EX_MEM['ZERO'] == 1 and memory.EX_MEM_CTRL['BRANCH'] == 1:
-            memory.PC = memory.EX_MEM['BR_TGT']
-        elif memory.FWD['STALL'] != 1:
+        if memory.FWD['STALL'] != 1:
             memory.PC = memory.PC + 4
 
 def ID():
@@ -103,7 +96,6 @@ def ID():
         memory.ID_EX_CTRL['REG_WRITE'] = 0
         memory.ID_EX_CTRL['MEM_READ'] = 0
         memory.ID_EX_CTRL['MEM_WRITE'] = 0
-        memory.ID_EX_CTRL['BRANCH'] = 0
         memory.ID_EX_CTRL['ALU_OP'] = 0
     else:
         # Set Control of ID/EX (Control Unit)
@@ -115,8 +107,7 @@ def ID():
         memory.ID_EX_CTRL['REG_WRITE'] = ctrl[opcode][3]
         memory.ID_EX_CTRL['MEM_READ'] = ctrl[opcode][4]
         memory.ID_EX_CTRL['MEM_WRITE'] = ctrl[opcode][5]
-        memory.ID_EX_CTRL['BRANCH'] = ctrl[opcode][6]
-        memory.ID_EX_CTRL['ALU_OP'] = ctrl[opcode][7]
+        memory.ID_EX_CTRL['ALU_OP'] = ctrl[opcode][6]
 
     # Set ID/EX.NPC
     memory.ID_EX['NPC'] = memory.IF_ID['NPC']
@@ -152,12 +143,8 @@ def EX():
     # Set Control of EX/MEM based on Control of ID/EX
     memory.EX_MEM_CTRL['MEM_TO_REG'] = memory.ID_EX_CTRL['MEM_TO_REG']
     memory.EX_MEM_CTRL['REG_WRITE'] = memory.ID_EX_CTRL['REG_WRITE']
-    memory.EX_MEM_CTRL['BRANCH'] = memory.ID_EX_CTRL['BRANCH']
     memory.EX_MEM_CTRL['MEM_READ'] = memory.ID_EX_CTRL['MEM_READ']
     memory.EX_MEM_CTRL['MEM_WRITE'] = memory.ID_EX_CTRL['MEM_WRITE']
-
-    # Set EX/MEM.BrTgt (Shift Left 2)
-    memory.EX_MEM['BR_TGT'] = memory.ID_EX['NPC'] + (memory.ID_EX['IMM'] << 2)
 
     # Set internal ALU source A
     aluA = util.outFwdA
@@ -178,7 +165,7 @@ def EX():
     out = 0
     if memory.ID_EX_CTRL['ALU_OP'] == 0: # Add (lw/sw/addi)
         out = aluA + aluB
-    elif memory.ID_EX_CTRL['ALU_OP'] == 1: # Sub (beq)
+    elif memory.ID_EX_CTRL['ALU_OP'] == 1: # Sub
         out = aluA - aluB
     elif memory.ID_EX_CTRL['ALU_OP'] == 2: # R-Type
         funct = memory.ID_EX['IMM'] & 0x0000003F # IR[5..0]
