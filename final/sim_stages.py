@@ -1,224 +1,216 @@
 import mem_util as memory
 import mem_util as util
 
-# Control Unit ROM
-# RegDst, ALUSrc, MemToReg, RegWrite, MemRead, MemWrite, AluOp
-ctrl = {0b000000: (0b1, 0b0, 0b0, 0b1, 0b0, 0b0, 0b10), # R-Type
-        0b100011: (0b0, 0b1, 0b1, 0b1, 0b1, 0b0, 0b00), # lw
-        0b101011: (0b0, 0b1, 0b0, 0b0, 0b0, 0b1, 0b00), # sw
-        0b001000: (0b0, 0b1, 0b0, 0b1, 0b0, 0b0, 0b00)} # addi
-
-def EX_fwd():
+def DoForwarding():
     # Forwarding Unit
-    if memory.MEM_WB_CTRL['REG_WRITE'] == 1 and memory.MEM_WB['RD'] != 0 and memory.MEM_WB['RD'] == memory.ID_EX['RS'] and (memory.EX_MEM['RD'] != memory.ID_EX['RS'] or memory.EX_MEM_CTRL['REG_WRITE'] == 0):
-        memory.FWD['FWD_A'] = 1
-    elif memory.EX_MEM_CTRL['REG_WRITE'] == 1 and memory.EX_MEM['RD'] != 0 and memory.EX_MEM['RD'] == memory.ID_EX['RS']:
-        memory.FWD['FWD_A'] = 2
+    if memory.ctrlMEM_WB['reg_write'] == 1 and memory.pipeRegMEM_WB['rd'] != 0 and memory.pipeRegMEM_WB['rd'] == memory.pipeRegID_EX['rs'] and (memory.pipeRegEX_MEM['rd'] != memory.pipeRegID_EX['rs'] or memory.ctrlEX_MEM['reg_write'] == 0):
+        memory.otherSignals['Afwd'] = 1
+    elif memory.ctrlEX_MEM['reg_write'] == 1 and memory.pipeRegEX_MEM['rd'] != 0 and memory.pipeRegEX_MEM['rd'] == memory.pipeRegID_EX['rs']:
+        memory.otherSignals['Afwd'] = 2
     else:
-        memory.FWD['FWD_A'] = 0
+        memory.otherSignals['Afwd'] = 0
 
-    if memory.MEM_WB_CTRL['REG_WRITE'] == 1 and memory.MEM_WB['RD'] != 0 and memory.MEM_WB['RD'] == memory.ID_EX['RT'] and (memory.EX_MEM['RD'] != memory.ID_EX['RT'] or memory.EX_MEM_CTRL['REG_WRITE'] == 0):
-        memory.FWD['FWD_B'] = 1
-    elif memory.EX_MEM_CTRL['REG_WRITE'] == 1 and memory.EX_MEM['RD'] != 0 and memory.EX_MEM['RD'] == memory.ID_EX['RT']:
-        memory.FWD['FWD_B'] = 2
+    if memory.ctrlMEM_WB['reg_write'] == 1 and memory.pipeRegMEM_WB['rd'] != 0 and memory.pipeRegMEM_WB['rd'] == memory.pipeRegID_EX['rt'] and (memory.pipeRegEX_MEM['rd'] != memory.pipeRegID_EX['rt'] or memory.ctrlEX_MEM['reg_write'] == 0):
+        memory.otherSignals['Bfwd'] = 1
+    elif memory.ctrlEX_MEM['reg_write'] == 1 and memory.pipeRegEX_MEM['rd'] != 0 and memory.pipeRegEX_MEM['rd'] == memory.pipeRegID_EX['rt']:
+        memory.otherSignals['Bfwd'] = 2
     else:
-        memory.FWD['FWD_B'] = 0
+        memory.otherSignals['Bfwd'] = 0
 
     # FwdA Multiplexer
-    if memory.FWD['FWD_A'] == 0 or not util.data_hzd:
-        util.outFwdA = memory.ID_EX['A']
-    elif memory.FWD['FWD_A'] == 1:
-        if memory.MEM_WB_CTRL['MEM_TO_REG'] == 1:
-            util.outFwdA = memory.MEM_WB['LMD']
+    if memory.otherSignals['Afwd'] == 0 or not util.DHZD_flag:
+        util.AforwardFLAG = memory.pipeRegID_EX['valA']
+    elif memory.otherSignals['Afwd'] == 1:
+        if memory.ctrlMEM_WB['mem_to_reg'] == 1:
+            util.AforwardFLAG = memory.pipeRegMEM_WB['LMD']
         else:
-            util.outFwdA = memory.MEM_WB['ALU_OUT']
-    elif memory.FWD['FWD_A'] == 2:
-        util.outFwdA = memory.EX_MEM['ALU_OUT']
+            util.AforwardFLAG = memory.pipeRegMEM_WB['outALU']
+    elif memory.otherSignals['Afwd'] == 2:
+        util.AforwardFLAG = memory.pipeRegEX_MEM['outALU']
 
     # FwdB Multiplexer
-    if memory.FWD['FWD_B'] == 0 or not util.data_hzd:
-        util.outFwdB = memory.ID_EX['B']
-    elif memory.FWD['FWD_B'] == 1:
+    if memory.otherSignals['Bfwd'] == 0 or not util.DHZD_flag:
+        util.BforwardFLAG = memory.pipeRegID_EX['valB']
+    elif memory.otherSignals['Bfwd'] == 1:
         # MemToReg Multiplexer
-        if memory.MEM_WB_CTRL['MEM_TO_REG'] == 1:
-            util.outFwdB = memory.MEM_WB['LMD']
+        if memory.ctrlMEM_WB['mem_to_reg'] == 1:
+            util.BforwardFLAG = memory.pipeRegMEM_WB['LMD']
         else:
-            util.outFwdB = memory.MEM_WB['ALU_OUT']
-    elif memory.FWD['FWD_B'] == 2:
-        util.outFwdB = memory.EX_MEM['ALU_OUT']
+            util.BforwardFLAG = memory.pipeRegMEM_WB['outALU']
+    elif memory.otherSignals['Bfwd'] == 2:
+        util.BforwardFLAG = memory.pipeRegEX_MEM['outALU']
 
-def ID_hzd():
+def HazardCheck():
     # Hazard Unit
-    if_id_rs = (memory.IF_ID['IR'] & 0x03E00000) >> 21 # IR[25..21]
-    if_id_rt = (memory.IF_ID['IR'] & 0x001F0000) >> 16 # IR[20..16]
+    if_id_rs = (memory.pipeRegIF_ID['instReg'] & 0x03E00000) >> 21 # instReg[25..21]
+    if_id_rt = (memory.pipeRegIF_ID['instReg'] & 0x001F0000) >> 16 # instReg[20..16]
 
-    if memory.ID_EX_CTRL['MEM_READ'] == 1 and (memory.ID_EX['RT'] == if_id_rs or memory.ID_EX['RT'] == if_id_rt) and util.data_hzd:
-        memory.FWD['PC_WRITE'] = 0
-        memory.FWD['IF_ID_WRITE'] = 0
-        memory.FWD['STALL'] = 1
+    if memory.ctrlID_EX['mem_read'] == 1 and (memory.pipeRegID_EX['rt'] == if_id_rs or memory.pipeRegID_EX['rt'] == if_id_rt) and util.DHZD_flag:
+        memory.otherSignals['pcWrite'] = 0
+        memory.otherSignals['IF_ID_write'] = 0
+        memory.otherSignals['stall'] = 1
     else:
-        memory.FWD['PC_WRITE'] = 1
-        memory.FWD['IF_ID_WRITE'] = 1
-        memory.FWD['STALL'] = 0
+        memory.otherSignals['pcWrite'] = 1
+        memory.otherSignals['IF_ID_write'] = 1
+        memory.otherSignals['stall'] = 0
 
-def IF():
+def InstFetch():
     # Grab instruction from memory array
     try:
-        curInst = memory.INST[memory.PC//4]
+        curInst = memory.Imem[memory.PC//4]
     except IndexError:
         curInst = 0
 
     # Set simulator flags
-    util.ran['IF'] = (0, 0) if memory.FWD['STALL'] == 1 else (memory.PC//4, curInst)
-    util.wasIdle['IF'] = (memory.FWD['STALL'] == 1)
+    util.run_flag['IF'] = (0, 0) if memory.otherSignals['stall'] == 1 else (memory.PC//4, curInst)
+    util.idleOrNot['IF'] = (memory.otherSignals['stall'] == 1)
 
-    if memory.FWD['IF_ID_WRITE'] == 1 or not util.data_hzd:
-        # Set IF/ID.NPC
-        memory.IF_ID['NPC'] = memory.PC + 4
+    if memory.otherSignals['IF_ID_write'] == 1 or not util.DHZD_flag:
+        # Set IF/ID.pc_Val
+        memory.pipeRegIF_ID['pc_Val'] = memory.PC + 4
 
-        # Set IF/ID.IR
-        memory.IF_ID['IR'] = curInst
+        # Set IF/ID.instReg
+        memory.pipeRegIF_ID['instReg'] = curInst
 
-    if memory.FWD['PC_WRITE'] == 1 or not util.data_hzd:
-        if memory.FWD['STALL'] != 1:
+    if memory.otherSignals['pcWrite'] == 1 or not util.DHZD_flag:
+        if memory.otherSignals['stall'] != 1:
             memory.PC = memory.PC + 4
 
-def ID():
+def InstDecode():
     # Set simulator flags
-    util.ran['ID'] = (0, 0) if memory.FWD['STALL'] == 1 else util.ran['IF']
-    util.wasIdle['ID'] = (memory.FWD['STALL'] == 1)
+    util.run_flag['ID'] = (0, 0) if memory.otherSignals['stall'] == 1 else util.run_flag['IF']
+    util.idleOrNot['ID'] = (memory.otherSignals['stall'] == 1)
 
-    if memory.FWD['STALL'] == 1:
+    if memory.otherSignals['stall'] == 1:
         # Stall the pipeline, adding a bubble
-        memory.ID_EX_CTRL['REG_DST'] = 0
-        memory.ID_EX_CTRL['ALU_SRC'] = 0
-        memory.ID_EX_CTRL['MEM_TO_REG'] = 0
-        memory.ID_EX_CTRL['REG_WRITE'] = 0
-        memory.ID_EX_CTRL['MEM_READ'] = 0
-        memory.ID_EX_CTRL['MEM_WRITE'] = 0
-        memory.ID_EX_CTRL['ALU_OP'] = 0
+        memory.ctrlID_EX['reg_dst'] = 0
+        memory.ctrlID_EX['alu_src'] = 0
+        memory.ctrlID_EX['mem_to_reg'] = 0
+        memory.ctrlID_EX['reg_write'] = 0
+        memory.ctrlID_EX['mem_read'] = 0
+        memory.ctrlID_EX['mem_write'] = 0
+        memory.ctrlID_EX['alu_OP'] = 0
     else:
         # Set Control of ID/EX (Control Unit)
-        opcode = (memory.IF_ID['IR'] & 0xFC000000) >> 26 # IR[31..26]
+        opcode = (memory.pipeRegIF_ID['instReg'] & 0xFC000000) >> 26 # instReg[31..26]
         
-        memory.ID_EX_CTRL['REG_DST'] = ctrl[opcode][0]
-        memory.ID_EX_CTRL['ALU_SRC'] = ctrl[opcode][1]
-        memory.ID_EX_CTRL['MEM_TO_REG'] = ctrl[opcode][2]
-        memory.ID_EX_CTRL['REG_WRITE'] = ctrl[opcode][3]
-        memory.ID_EX_CTRL['MEM_READ'] = ctrl[opcode][4]
-        memory.ID_EX_CTRL['MEM_WRITE'] = ctrl[opcode][5]
-        memory.ID_EX_CTRL['ALU_OP'] = ctrl[opcode][6]
+        memory.ctrlID_EX['reg_dst'] = util.ControlSignals[opcode][0]
+        memory.ctrlID_EX['alu_src'] = util.ControlSignals[opcode][1]
+        memory.ctrlID_EX['mem_to_reg'] = util.ControlSignals[opcode][2]
+        memory.ctrlID_EX['reg_write'] = util.ControlSignals[opcode][3]
+        memory.ctrlID_EX['mem_read'] = util.ControlSignals[opcode][4]
+        memory.ctrlID_EX['mem_write'] = util.ControlSignals[opcode][5]
+        memory.ctrlID_EX['alu_OP'] = util.ControlSignals[opcode][6]
 
-    # Set ID/EX.NPC
-    memory.ID_EX['NPC'] = memory.IF_ID['NPC']
+    # Set ID/EX.pc_Val
+    memory.pipeRegID_EX['pc_Val'] = memory.pipeRegIF_ID['pc_Val']
 
-    # Set ID/EX.A
-    reg1 = (memory.IF_ID['IR'] & 0x03E00000) >> 21 # IR[25..21]
-    memory.ID_EX['A'] = memory.REGS[reg1]
+    # Set ID/EX.valA
+    reg1 = (memory.pipeRegIF_ID['instReg'] & 0x03E00000) >> 21 # instReg[25..21]
+    memory.pipeRegID_EX['valA'] = memory.reg[reg1]
 
-    # Set ID/EX.B
-    reg2 = (memory.IF_ID['IR'] & 0x001F0000) >> 16 # IR[20..16]
-    memory.ID_EX['B'] = memory.REGS[reg2]
+    # Set ID/EX.valB
+    reg2 = (memory.pipeRegIF_ID['instReg'] & 0x001F0000) >> 16 # instReg[20..16]
+    memory.pipeRegID_EX['valB'] = memory.reg[reg2]
 
-    # Set ID/EX.RT
-    memory.ID_EX['RT'] = (memory.IF_ID['IR'] & 0x001F0000) >> 16 # IR[20..16]
+    # Set ID/EX.rt
+    memory.pipeRegID_EX['rt'] = (memory.pipeRegIF_ID['instReg'] & 0x001F0000) >> 16 # instReg[20..16]
 
-    # Set ID/EX.RD
-    memory.ID_EX['RD'] = (memory.IF_ID['IR'] & 0x0000F800) >> 11 # IR[15..11]
+    # Set ID/EX.rd
+    memory.pipeRegID_EX['rd'] = (memory.pipeRegIF_ID['instReg'] & 0x0000F800) >> 11 # instReg[15..11]
 
     # Set ID/EX.Imm (Sign Extend)
-    imm = (memory.IF_ID['IR'] & 0x0000FFFF) >> 0 # IR[15..0]
-    memory.ID_EX['IMM'] = imm
+    imm = (memory.pipeRegIF_ID['instReg'] & 0x0000FFFF) >> 0 # instReg[15..0]
+    memory.pipeRegID_EX['imm'] = imm
 
-    # Set ID/EX.RS
-    memory.ID_EX['RS'] = (memory.IF_ID['IR'] & 0x03E00000) >> 21 # IR[25..21]
+    # Set ID/EX.rs
+    memory.pipeRegID_EX['rs'] = (memory.pipeRegIF_ID['instReg'] & 0x03E00000) >> 21 # instReg[25..21]
     
 
-
-def EX():
+def Execute():
     # Set simulator flags
-    util.ran['EX'] = util.ran['ID']
-    util.wasIdle['EX'] = False
+    util.run_flag['EX'] = util.run_flag['ID']
+    util.idleOrNot['EX'] = False
 
     # Set Control of EX/MEM based on Control of ID/EX
-    memory.EX_MEM_CTRL['MEM_TO_REG'] = memory.ID_EX_CTRL['MEM_TO_REG']
-    memory.EX_MEM_CTRL['REG_WRITE'] = memory.ID_EX_CTRL['REG_WRITE']
-    memory.EX_MEM_CTRL['MEM_READ'] = memory.ID_EX_CTRL['MEM_READ']
-    memory.EX_MEM_CTRL['MEM_WRITE'] = memory.ID_EX_CTRL['MEM_WRITE']
+    memory.ctrlEX_MEM['mem_to_reg'] = memory.ctrlID_EX['mem_to_reg']
+    memory.ctrlEX_MEM['reg_write'] = memory.ctrlID_EX['reg_write']
+    memory.ctrlEX_MEM['mem_read'] = memory.ctrlID_EX['mem_read']
+    memory.ctrlEX_MEM['mem_write'] = memory.ctrlID_EX['mem_write']
 
-    # Set internal ALU source A
-    aluA = util.outFwdA
+    # Set internal ALU source valA
+    a = util.AforwardFLAG
 
-    # Set internal ALU source B (B Multiplexer)
-    if memory.ID_EX_CTRL['ALU_SRC'] == 1:
-        aluB = memory.ID_EX['IMM']
+    # Set internal ALU source valB (valB Multiplexer)
+    if memory.ctrlID_EX['alu_src'] == 1:
+        b = memory.pipeRegID_EX['imm']
     else:
-        aluB = util.outFwdB
+        b = util.BforwardFLAG
 
     # Set EX/MEM.Zero (ALU)
-    if aluA - aluB == 0:
-        memory.EX_MEM['ZERO'] = 1
+    if a - b == 0:
+        memory.pipeRegEX_MEM['ZERO'] = 1
     else:
-        memory.EX_MEM['ZERO'] = 0
+        memory.pipeRegEX_MEM['ZERO'] = 0
 
     # Set EX/MEM.AluOut (ALU + ALU Control)
     out = 0
-    if memory.ID_EX_CTRL['ALU_OP'] == 0: # Add (lw/sw/addi)
-        out = aluA + aluB
-    elif memory.ID_EX_CTRL['ALU_OP'] == 1: # Sub
-        out = aluA - aluB
-    elif memory.ID_EX_CTRL['ALU_OP'] == 2: # R-Type
-        funct = memory.ID_EX['IMM'] & 0x0000003F # IR[5..0]
-        shamt = memory.ID_EX['IMM'] & 0x000007C0 # IR[10..6]
-        if funct == util.rTypeWords['add']:
-            out = aluA + aluB
-        elif funct == util.rTypeWords['sub']:
-            out = aluA - aluB
-        elif funct == util.rTypeWords['and']:
-            out = aluA & aluB
-        elif funct == util.rTypeWords['or']:
-            out = aluA | aluB
-        elif funct == util.rTypeWords['sll']:
-            out = aluA << shamt
-        elif funct == util.rTypeWords['srl']:
-            out = aluA >> shamt
-        elif funct == util.rTypeWords['xor']:
-            out = aluA ^ aluB
-        elif funct == util.rTypeWords['nor']:
-            out = ~(aluA | aluB)
-        elif funct == util.rTypeWords['mult']:
-            out = aluA * aluB
-        elif funct == util.rTypeWords['div']:
-            out = aluA // aluB
-    memory.EX_MEM['ALU_OUT'] = out
+    if memory.ctrlID_EX['alu_OP'] == 0: # Add (lw/sw/addi)
+        out = a + b
+    elif memory.ctrlID_EX['alu_OP'] == 1: # Sub
+        out = a - b
+    elif memory.ctrlID_EX['alu_OP'] == 2: # R-Type
+        funct = memory.pipeRegID_EX['imm'] & 0x0000003F # instReg[5..0]
+        shamt = memory.pipeRegID_EX['imm'] & 0x000007C0 # instReg[10..6]
+        if funct == util.R_inst['add']:
+            out = a + b
+        elif funct == util.R_inst['sub']:
+            out = a - b
+        elif funct == util.R_inst['and']:
+            out = a & b
+        elif funct == util.R_inst['or']:
+            out = a | b
+        elif funct == util.R_inst['sll']:
+            out = a << shamt
+        elif funct == util.R_inst['srl']:
+            out = a >> shamt
+        elif funct == util.R_inst['xor']:
+            out = a ^ b
+        elif funct == util.R_inst['nor']:
+            out = ~(a | b)
+        elif funct == util.R_inst['mult']:
+            out = a * b
+        elif funct == util.R_inst['div']:
+            out = a // b
+    memory.pipeRegEX_MEM['outALU'] = out
 
-    # Set EX/MEM.B
-    memory.EX_MEM['B'] = util.outFwdB
+    # Set EX/MEM.valB
+    memory.pipeRegEX_MEM['valB'] = util.BforwardFLAG
 
-    # Set EX/MEM.RD (RegDst Multiplexer)
-    if memory.ID_EX_CTRL['REG_DST'] == 1:
-        memory.EX_MEM['RD'] = memory.ID_EX['RD']
+    # Set EX/MEM.rd (RegDst Multiplexer)
+    if memory.ctrlID_EX['reg_dst'] == 1:
+        memory.pipeRegEX_MEM['rd'] = memory.pipeRegID_EX['rd']
     else:
-        memory.EX_MEM['RD'] = memory.ID_EX['RT']
+        memory.pipeRegEX_MEM['rd'] = memory.pipeRegID_EX['rt']
 
-def MEM():
+def MemoryAccess():
     # Set simulator flags
-    util.ran['MEM'] = util.ran['EX']
-    util.wasIdle['MEM'] = memory.EX_MEM_CTRL['MEM_READ'] != 1 and memory.EX_MEM_CTRL['MEM_WRITE'] != 1
+    util.run_flag['MEM'] = util.run_flag['EX']
+    util.idleOrNot['MEM'] = memory.ctrlEX_MEM['mem_read'] != 1 and memory.ctrlEX_MEM['mem_write'] != 1
 
     # Set Control of MEM/WB based on Control of EX/MEM
-    memory.MEM_WB_CTRL['MEM_TO_REG'] = memory.EX_MEM_CTRL['MEM_TO_REG']
-    memory.MEM_WB_CTRL['REG_WRITE'] = memory.EX_MEM_CTRL['REG_WRITE']
+    memory.ctrlMEM_WB['mem_to_reg'] = memory.ctrlEX_MEM['mem_to_reg']
+    memory.ctrlMEM_WB['reg_write'] = memory.ctrlEX_MEM['reg_write']
 
     # Set MEM/WB.LMD (read from Data Memory)
-    if memory.EX_MEM_CTRL['MEM_READ'] == 1:
+    if memory.ctrlEX_MEM['mem_read'] == 1:
         # The simulation memory might not be big enough
-        if memory.EX_MEM['ALU_OUT']//4 < util.DATA_SIZE:
-            memory.MEM_WB['LMD'] = memory.DATA[memory.EX_MEM['ALU_OUT']//4]
+        if memory.pipeRegEX_MEM['outALU']//4 < util.MemorySize:
+            memory.pipeRegMEM_WB['LMD'] = memory.Dmem[memory.pipeRegEX_MEM['outALU']//4]
         else:
             print('***WARNING***')
-            print(f'\tMemory Read at position {memory.EX_MEM["ALU_OUT"]} not executed:')
-            print(f'\t\tMemory only has {util.DATA_SIZE*4} positions.')
+            print(f'\tMemory Read at position {memory.pipeRegEX_MEM["outALU"]} not executed:')
+            print(f'\t\tMemory only has {util.MemorySize*4} positions.')
             
             try:
                 input('Press ENTER to continue execution or abort with CTRL-C. ')
@@ -227,36 +219,31 @@ def MEM():
                 exit()
     
     # Write to Data Memory
-    if memory.EX_MEM_CTRL['MEM_WRITE'] == 1:
+    if memory.ctrlEX_MEM['mem_write'] == 1:
         # The simulation memory might not be big enough
-        if memory.EX_MEM['ALU_OUT']//4 < util.DATA_SIZE:
-            memory.DATA[memory.EX_MEM['ALU_OUT']//4] = memory.EX_MEM['B']
+        if memory.pipeRegEX_MEM['outALU']//4 < util.MemorySize:
+            memory.Dmem[memory.pipeRegEX_MEM['outALU']//4] = memory.pipeRegEX_MEM['valB']
         else:
             print('***WARNING***')
-            print(f'\tMemory Write at position {memory.EX_MEM["ALU_OUT"]} not executed:')
-            print(f'\t\tMemory only has {util.DATA_SIZE*4} positions.')
-            
-            try:
-                input('Press ENTER to continue execution or abort with CTRL-C. ')
-            except KeyboardInterrupt:
-                print('Execution aborted.')
-                exit()
+            print(f'\tMemory Write at position {memory.pipeRegEX_MEM["outALU"]} not executed:')
+            print(f'\t\tMemory only has {util.MemorySize*4} positions.')
+            exit()
     
     # Set MEM/WB.ALUOut
-    memory.MEM_WB['ALU_OUT'] = memory.EX_MEM['ALU_OUT']
+    memory.pipeRegMEM_WB['outALU'] = memory.pipeRegEX_MEM['outALU']
 
-    # Set MEM/WB.RD
-    memory.MEM_WB['RD'] = memory.EX_MEM['RD']
+    # Set MEM/WB.rd
+    memory.pipeRegMEM_WB['rd'] = memory.pipeRegEX_MEM['rd']
 
-def WB():
+def WriteBack():
     # Set simulator flags
-    util.ran['WB'] = util.ran['MEM']
-    util.wasIdle['WB'] = memory.MEM_WB_CTRL['REG_WRITE'] != 1 or memory.MEM_WB['RD'] == 0
+    util.run_flag['WB'] = util.run_flag['MEM']
+    util.idleOrNot['WB'] = memory.ctrlMEM_WB['reg_write'] != 1 or memory.pipeRegMEM_WB['rd'] == 0
 
     # Write to Registers
-    if memory.MEM_WB_CTRL['REG_WRITE'] == 1 and memory.MEM_WB['RD'] != 0:
+    if memory.ctrlMEM_WB['reg_write'] == 1 and memory.pipeRegMEM_WB['rd'] != 0:
         # MemToReg Multiplexer
-        if memory.MEM_WB_CTRL['MEM_TO_REG'] == 1:
-            memory.REGS[memory.MEM_WB['RD']] = memory.MEM_WB['LMD']
+        if memory.ctrlMEM_WB['mem_to_reg'] == 1:
+            memory.reg[memory.pipeRegMEM_WB['rd']] = memory.pipeRegMEM_WB['LMD']
         else:
-            memory.REGS[memory.MEM_WB['RD']] = memory.MEM_WB['ALU_OUT']
+            memory.reg[memory.pipeRegMEM_WB['rd']] = memory.pipeRegMEM_WB['outALU']

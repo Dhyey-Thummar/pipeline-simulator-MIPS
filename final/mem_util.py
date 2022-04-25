@@ -1,35 +1,34 @@
 import webbrowser
+import os
 # Simulator flags for the history board at the end
-ran = {'IF': (0, 0), 'ID': (0, 0), 'EX': (0, 0), 'MEM': (0, 0), 'WB': (0, 0)}
-wasIdle = {'IF': False, 'ID': False, 'EX': False, 'MEM': False, 'WB': False}
+run_flag = {'IF': (0, 0), 'ID': (0, 0), 'EX': (0, 0), 'MEM': (0, 0), 'WB': (0, 0)}
+idleOrNot = {'IF': False, 'ID': False, 'EX': False, 'MEM': False, 'WB': False}
 
 # Dictionaries for easier processing
-rTypeWords = { 'add': 0b100000, 'sub': 0b100010, 'and': 0b100100,  'or': 0b100101,
-               'sll': 0b000000, 'srl': 0b000010, 'xor': 0b100110, 'nor': 0b100111,
-              'mult': 0b011000, 'div': 0b011001}
+R_inst = { 'add': 0b100000, 'sub': 0b100010, 'and': 0b100100,  'or': 0b100101,
+           'sll': 0b000000, 'srl': 0b000010, 'xor': 0b100110, 'nor': 0b100111,
+           'mult': 0b011000, 'div': 0b011001}
 
-rTypeBins = {v: k for k, v in rTypeWords.items()}
-regNames = ['$zero', '$at', '$v0', '$v1', '$a0', '$a1', '$a2', '$a3',
+RegistersALL = ['$zero', '$at', '$v0', '$v1', '$a0', '$a1', '$a2', '$a3',
               '$t0', '$t1', '$t2', '$t3', '$t4', '$t5', '$t6', '$t7',
               '$s0', '$s1', '$s2', '$s3', '$s4', '$s5', '$s6', '$s7',
               '$t8', '$t9', '$k0', '$k1', '$gp', '$sp', '$fp', '$ra']
 
 # Data Memory size, can be changed to any multiple of 4
-DATA_SIZE = 64
+MemorySize = 64
 
-# Error Signals
-EINST = -1
-EARG = -2
-EFLOW = -3
-ERROR = [EINST, EARG, EFLOW]
+# allERRORS Signals
+instERROR = -1
+argumentERROR = -2
+overinflowERROR = -3
+allERRORS = [instERROR, argumentERROR, overinflowERROR]
 
 # Enable or disable hazard protections
-data_hzd = True
-ctrl_hzd = True
+DHZD_flag = True
 
 # Forwarding+Hazard Units helper variables
-outFwdA = 0
-outFwdB = 0
+AforwardFLAG = 0
+BforwardFLAG = 0
 
 ###
 # File to store simulation registers, control signals and memory
@@ -39,54 +38,61 @@ outFwdB = 0
 PC = 0
 
 # Instruction Memory
-INST = []
+Imem = []
 
 # Registers
-REGS = [0 for i in range(32)]
+reg = [0 for i in range(32)]
 
 # Data Memory
-DATA = [0 for i in range(DATA_SIZE)]
+Dmem = [0 for i in range(MemorySize)]
 
 # Pipeline Registers
-IF_ID = {'NPC': 0, 'IR': 0}
-ID_EX = {'NPC': 0, 'A': 0, 'B': 0, 'RT': 0, 'RD': 0, 'IMM': 0, 'RS': 0}
-EX_MEM = {'ZERO': 0, 'ALU_OUT': 0, 'B': 0, 'RD': 0}
-MEM_WB = {'LMD': 0, 'ALU_OUT': 0, 'RD': 0}
+pipeRegIF_ID = {'pc_Val': 0, 'instReg': 0}
+pipeRegID_EX = {'pc_Val': 0, 'valA': 0, 'valB': 0, 'rt': 0, 'rd': 0, 'imm': 0, 'rs': 0}
+pipeRegEX_MEM = {'ZERO': 0, 'outALU': 0, 'valB': 0, 'rd': 0}
+pipeRegMEM_WB = {'LMD': 0, 'outALU': 0, 'rd': 0}
 
 # Control Signals
-ID_EX_CTRL = {'REG_DST': 0, 'ALU_SRC': 0, 'MEM_TO_REG': 0, 'REG_WRITE': 0, 'MEM_READ': 0, 'MEM_WRITE': 0, 'ALU_OP': 0}
-EX_MEM_CTRL = {'MEM_READ': 0, 'MEM_WRITE': 0, 'MEM_TO_REG': 0, 'REG_WRITE': 0}
-MEM_WB_CTRL = {'MEM_TO_REG': 0, 'REG_WRITE': 0}
+ctrlID_EX = {'reg_dst': 0, 'alu_src': 0, 'mem_to_reg': 0, 'reg_write': 0, 'mem_read': 0, 'mem_write': 0, 'alu_OP': 0}
+ctrlEX_MEM = {'mem_read': 0, 'mem_write': 0, 'mem_to_reg': 0, 'reg_write': 0}
+ctrlMEM_WB = {'mem_to_reg': 0, 'reg_write': 0}
 
 # Forwarding Unit Signals
-FWD = {'PC_WRITE': 1, 'IF_ID_WRITE': 1, 'FWD_A': 0, 'FWD_B': 0, 'STALL': 0}
+otherSignals = {'pcWrite': 1, 'IF_ID_write': 1, 'Afwd': 0, 'Bfwd': 0, 'stall': 0}
+
+# Control Unit ROM
+#   RegDst, ALUSrc, MemToReg, RegWrite, MemRead, MemWrite, AluOp
+ControlSignals = {0b000000: (0b1, 0b0, 0b0, 0b1, 0b0, 0b0, 0b10),  # R-Type
+                  0b100011: (0b0, 0b1, 0b1, 0b1, 0b1, 0b0, 0b00),  # lw
+                  0b101011: (0b0, 0b1, 0b0, 0b0, 0b0, 0b1, 0b00),  # sw
+                  0b001000: (0b0, 0b1, 0b0, 0b1, 0b0, 0b0, 0b00)}  # addi
 
 # Convert from string to int
-def encode(inst):
-    inst = inst.replace(',', '') # Ignore commas
+def translate(instruction):
+    instruction = instruction.replace(',', '') # Ignore commas
 
     # Replace register names with its index
-    for i in range(len(regNames)):
-        inst = inst.replace(regNames[i], str(i))
-    inst = inst.replace('$', '') # $0, $4, $7, etc.
+    for i in range(len(RegistersALL)):
+        instruction = instruction.replace(RegistersALL[i], str(i))
+    instruction = instruction.replace('$', '') # $0, $4, $7, etc.
 
-    inst = inst.split()
+    instruction = instruction.split()
 
-    out = EINST
-    if inst[0] in rTypeWords: # R-Type
+    out = instERROR
+    if instruction[0] in R_inst: # R-Type
         out = 0
 
-        if inst[0] == 'sll' or inst[0] == 'srl':
+        if instruction[0] == 'sll' or instruction[0] == 'srl':
             try:
-                rd, rt, shamt = [int(i, 0) for i in inst[1:]] # Accepts any base (e.g. 0b, 0o, 0x)
+                rd, rt, shamt = [int(i, 0) for i in instruction[1:]] # Accepts any base (e.g. 0b, 0o, 0x)
                 
             except:
-                return EARG # Not correct number of arguments
+                return argumentERROR # Not correct number of arguments
 
             # Check for under/overflow
             nrd, nrt, nshamt = rd&0x1F, rt&0x1F, shamt&0x1F
             if [nrd, nrt, nshamt] != [rd, rt, shamt]:
-                return EFLOW
+                return overinflowERROR
             rd, rt, shamt = nrd, nrt, nshamt
 
             # Encode
@@ -96,18 +102,18 @@ def encode(inst):
             out <<= 5
             out |= shamt
             out <<= 6
-            out |= rTypeWords[inst[0]]
+            out |= R_inst[instruction[0]]
 
         else: # R-Types other than sll/srl
             try:
-                rd, rs, rt = [int(i, 0) for i in inst[1:]] # Accepts any base (e.g. 0b, 0o, 0x)
+                rd, rs, rt = [int(i, 0) for i in instruction[1:]] # Accepts any base (e.g. 0b, 0o, 0x)
             except:
-                return EARG # Not correct number of arguments
+                return argumentERROR # Not correct number of arguments
 
             # Check for under/overflow
             nrd, nrs, nrt = rd&0x1F, rs&0x1F, rt&0x1F
             if [nrd, nrs, nrt] != [rd, rs, rt]:
-                return EFLOW
+                return overinflowERROR
             rd, rs, rt = nrd, nrs, nrt
 
             # Encode
@@ -117,24 +123,24 @@ def encode(inst):
             out <<= 5
             out |= rd
             out <<= 11
-            out |= rTypeWords[inst[0]]
+            out |= R_inst[instruction[0]]
 
-    elif inst[0] == 'lw' or inst[0] == 'sw':
+    elif instruction[0] == 'lw' or instruction[0] == 'sw':
         opcode = {'lw': 0b100011, 'sw': 0b101011}
-        out = opcode[inst[0]] << 5
+        out = opcode[instruction[0]] << 5
 
         try:
-            inst[2] = inst[2].split('(')
-            inst[2:] = inst[2][0], inst[2][1][:-1]
+            instruction[2] = instruction[2].split('(')
+            instruction[2:] = instruction[2][0], instruction[2][1][:-1]
 
-            rt, offset, rs = [int(i, 0) for i in inst[1:]] # Accepts any base (e.g. 0b, 0o, 0x)
+            rt, offset, rs = [int(i, 0) for i in instruction[1:]] # Accepts any base (e.g. 0b, 0o, 0x)
         except:
-            return EARG # Not correct number of arguments
+            return argumentERROR # Not correct number of arguments
 
         # Check for under/overflow
         nrt, nrs, noffset = rt&0x1F, rs&0x1F, offset&0xFFFF
         if [nrt, nrs, noffset] != [rt, rs, offset]:
-            return EFLOW
+            return overinflowERROR
         rt, rs, offset = nrt, nrs, noffset
 
         # Encode
@@ -144,18 +150,18 @@ def encode(inst):
         out <<= 16
         out |= offset
 
-    elif inst[0] == 'addi':
+    elif instruction[0] == 'addi':
         out = 0b001000 << 5
 
         try:
-            rt, rs, imm = [int(i, 0) for i in inst[1:]] # Accepts any base (e.g. 0b, 0o, 0x)
+            rt, rs, imm = [int(i, 0) for i in instruction[1:]] # Accepts any base (e.g. 0b, 0o, 0x)
         except:
-            return EARG # Not correct number of arguments
+            return argumentERROR # Not correct number of arguments
 
         # Check for under/overflow
         nrt, nrs, nimm = rt&0x1F, rs&0x1F, imm&0xFFFF
         if [nrt, nrs, nimm] != [rt, rs, imm]:
-            return EFLOW
+            return overinflowERROR
         rt, rs, imm = nrt, nrs, nimm
 
         # Encode
@@ -167,15 +173,4 @@ def encode(inst):
 
     return out
 
-def PrintToFile(clkHistory):
-
-
-    textfile = open("processed.txt", "w")
-
-    for line in lines:
-        newLine = line.replace('\n', ' ')
-        textfile.write(newLine)
-
-    textfile.close()
-
-    webbrowser.open("processed.txt")
+    
