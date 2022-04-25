@@ -108,6 +108,7 @@ def ID():
     else:
         # Set Control of ID/EX (Control Unit)
         opcode = (memory.IF_ID['IR'] & 0xFC000000) >> 26 # IR[31..26]
+        
         memory.ID_EX_CTRL['REG_DST'] = ctrl[opcode][0]
         memory.ID_EX_CTRL['ALU_SRC'] = ctrl[opcode][1]
         memory.ID_EX_CTRL['MEM_TO_REG'] = ctrl[opcode][2]
@@ -140,6 +141,8 @@ def ID():
 
     # Set ID/EX.RS
     memory.ID_EX['RS'] = (memory.IF_ID['IR'] & 0x03E00000) >> 21 # IR[25..21]
+    
+
 
 def EX():
     # Set simulator flags
