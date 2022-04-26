@@ -18,23 +18,15 @@ def main():
 
     clkHistory2 = []
 
-    path = __file__
-    path = path.replace('sim_main.py', 'output.txt')
-    print(path)
-    f = open(path, "w")
-
-
-
     def Takein():
         
         INPUT = inputtxt.get(1.0, END)
         program = [i.strip() for i in INPUT.splitlines()]
         programLength = len(program)
-        # Encode and load .asm into memory
+
         for i in range(programLength):
             encoded = util.translate(program[i].split('#')[0])
-            # get the encoded form of the instruction from the
-            # Detect errors, if none then continue loading
+
             if encoded not in util.allERRORS:
                 memory.Imem.append(encoded)
             else:
@@ -50,9 +42,7 @@ def main():
                 print(err)
                 return
 
-    # Run simulation, will run until all pipeline stages are empty
 
-        
 
         clkHistory = []
         clk = 0
@@ -81,16 +71,20 @@ def main():
                     clkHistory[clk].append(
                         (stage, util.run_flag[stage], util.idleOrNot[stage]))
 
-            
-
-            f.write(str(clk))
-            print(str(clk))
-            print('done')
-
             clk += 1
 
+            print('--------------------[' + str(clk) + ']-------------------------')
+            print('\n'+'PC: '+str(memory.PC))
+            print('\n'+'All the Register Values:'+'\n')
+            for i in range(8):
+                print('R'+str(4*i)+' = '+hex(memory.reg[4*i])+'\t\t'+'R'+str(4*i+1)+' = '+hex(memory.reg[4*i+1])+'\t\t'+'R'+str(4*i+2)+' = '+hex(memory.reg[4*i+2])+'\t\t'+'R'+str(4*i+3)+' = '+hex(memory.reg[4*i+3]))
+            
+            print('\n')
+            
+
+
         print()
-        print(f'Program run_flag in {clk} clocks.')
+        print(f'Program ran in {clk} clocks.')
         print()
         
 
@@ -108,8 +102,7 @@ def main():
                    for i in range(len(memory.Imem))]
         for i in range(len(clkHistory2)):
             for exe in clkHistory2[i]:
-                if exe[2]:  # Idle
-                    # Show idle stages
+                if exe[2]:  # If the stage is idle
                     history[exe[1][0]][i] = 'Idle'
                 else:
                     history[exe[1][0]][i] = exe[0]
@@ -128,9 +121,6 @@ def main():
                 Output.insert(END, history[i][j].center(5)+' ')
             Output.insert(END, '║'+'\n')
         Output.insert(END, '╚' + '═'*(6*len(clkHistory2)) + '╝'+'\n')
-
-        
-        
 
     def Exit():
         sys.exit()

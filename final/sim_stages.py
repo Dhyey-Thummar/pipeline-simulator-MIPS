@@ -1,8 +1,8 @@
 import mem_util as memory
 import mem_util as util
 
+#Forwarding logic
 def DoForwarding():
-    # Forwarding Unit
     if memory.ctrlMEM_WB['reg_write'] == 1 and memory.pipeRegMEM_WB['rd'] != 0 and memory.pipeRegMEM_WB['rd'] == memory.pipeRegID_EX['rs'] and (memory.pipeRegEX_MEM['rd'] != memory.pipeRegID_EX['rs'] or memory.ctrlEX_MEM['reg_write'] == 0):
         memory.otherSignals['Afwd'] = 1
     elif memory.ctrlEX_MEM['reg_write'] == 1 and memory.pipeRegEX_MEM['rd'] != 0 and memory.pipeRegEX_MEM['rd'] == memory.pipeRegID_EX['rs']:
@@ -39,9 +39,10 @@ def DoForwarding():
             util.outFWD_B = memory.pipeRegMEM_WB['outALU']
     elif memory.otherSignals['Bfwd'] == 2:
         util.outFWD_B = memory.pipeRegEX_MEM['outALU']
-
+    
+#Hazard detection
 def HazardCheck():
-    # Hazard Unit
+
     if_id_rs = (memory.pipeRegIF_ID['instReg'] & 0x03E00000) >> 21 # instReg[25..21]
     if_id_rt = (memory.pipeRegIF_ID['instReg'] & 0x001F0000) >> 16 # instReg[20..16]
 
@@ -54,11 +55,11 @@ def HazardCheck():
         memory.otherSignals['IF_ID_write'] = 1
         memory.otherSignals['stall'] = 0
 
+#Instruction fetch
 def InstFetch():
-    # Grab instruction from memory array
     try:
         curInst = memory.Imem[memory.PC//4]
-    except IndexError:
+    except:
         curInst = 0
 
     # Set simulator flags
@@ -82,7 +83,7 @@ def InstDecode():
     util.idleOrNot['ID'] = (memory.otherSignals['stall'] == 1)
 
     if memory.otherSignals['stall'] == 1:
-        # Stall the pipeline, adding a bubble
+        # Stall the pipeline
         memory.ctrlID_EX['reg_dst'] = 0
         memory.ctrlID_EX['alu_src'] = 0
         memory.ctrlID_EX['mem_to_reg'] = 0
@@ -126,7 +127,7 @@ def InstDecode():
     # Set ID/EX.rs
     memory.pipeRegID_EX['rs'] = (memory.pipeRegIF_ID['instReg'] & 0x03E00000) >> 21 # instReg[25..21]
     
-
+#Instruction execute
 def Execute():
     # Set simulator flags
     util.run_flag['EX'] = util.run_flag['ID']
@@ -138,10 +139,10 @@ def Execute():
     memory.ctrlEX_MEM['mem_read'] = memory.ctrlID_EX['mem_read']
     memory.ctrlEX_MEM['mem_write'] = memory.ctrlID_EX['mem_write']
 
-    # Set internal ALU source valA
+    # Set internal ALU source A
     a = util.outFWD_A
 
-    # Set internal ALU source valB (valB Multiplexer)
+    # Set internal ALU source B 
     if memory.ctrlID_EX['alu_src'] == 1:
         b = memory.pipeRegID_EX['imm']
     else:
@@ -159,7 +160,7 @@ def Execute():
         out = a + b
     elif memory.ctrlID_EX['alu_OP'] == 1: # Sub
         out = a - b
-    elif memory.ctrlID_EX['alu_OP'] == 2: # R-Type
+    elif memory.ctrlID_EX['alu_OP'] == 2:
         funct = memory.pipeRegID_EX['imm'] & 0x0000003F # instReg[5..0]
         shamt = memory.pipeRegID_EX['imm'] & 0x000007C0 # instReg[10..6]
         if funct == util.R_inst['add']:
@@ -193,6 +194,7 @@ def Execute():
     else:
         memory.pipeRegEX_MEM['rd'] = memory.pipeRegID_EX['rt']
 
+# Memory Stage
 def MemoryAccess():
     # Set simulator flags
     util.run_flag['MEM'] = util.run_flag['EX']
@@ -208,15 +210,11 @@ def MemoryAccess():
         if memory.pipeRegEX_MEM['outALU']//4 < util.MemorySize:
             memory.pipeRegMEM_WB['LMD'] = memory.Dmem[memory.pipeRegEX_MEM['outALU']//4]
         else:
-            print('***WARNING***')
             print(f'\tMemory Read at position {memory.pipeRegEX_MEM["outALU"]} not executed:')
             print(f'\t\tMemory only has {util.MemorySize*4} positions.')
             
-            try:
-                input('Press ENTER to continue execution or abort with CTRL-C. ')
-            except KeyboardInterrupt:
-                print('Execution aborted.')
-                exit()
+            print('Execution aborted.')
+            exit()
     
     # Write to Data Memory
     if memory.ctrlEX_MEM['mem_write'] == 1:
@@ -224,7 +222,6 @@ def MemoryAccess():
         if memory.pipeRegEX_MEM['outALU']//4 < util.MemorySize:
             memory.Dmem[memory.pipeRegEX_MEM['outALU']//4] = memory.pipeRegEX_MEM['valB']
         else:
-            print('***WARNING***')
             print(f'\tMemory Write at position {memory.pipeRegEX_MEM["outALU"]} not executed:')
             print(f'\t\tMemory only has {util.MemorySize*4} positions.')
             exit()
@@ -235,6 +232,7 @@ def MemoryAccess():
     # Set MEM/WB.rd
     memory.pipeRegMEM_WB['rd'] = memory.pipeRegEX_MEM['rd']
 
+# Write Back
 def WriteBack():
     # Set simulator flags
     util.run_flag['WB'] = util.run_flag['MEM']

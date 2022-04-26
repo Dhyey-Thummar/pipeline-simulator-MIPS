@@ -1,6 +1,4 @@
-import webbrowser
-import os
-# Simulator flags for the history board at the end
+#flags to track the instructions execution
 run_flag = {'IF': (0, 0), 'ID': (0, 0), 'EX': (0, 0), 'MEM': (0, 0), 'WB': (0, 0)}
 idleOrNot = {'IF': False, 'ID': False, 'EX': False, 'MEM': False, 'WB': False}
 
@@ -14,25 +12,19 @@ RegistersALL = ['$zero', '$at', '$v0', '$v1', '$a0', '$a1', '$a2', '$a3',
               '$s0', '$s1', '$s2', '$s3', '$s4', '$s5', '$s6', '$s7',
               '$t8', '$t9', '$k0', '$k1', '$gp', '$sp', '$fp', '$ra']
 
-# Data Memory size, can be changed to any multiple of 4
+
 MemorySize = 64
 
-# allERRORS Signals
 instERROR = -1
 argumentERROR = -2
 overinflowERROR = -3
 allERRORS = [instERROR, argumentERROR, overinflowERROR]
 
-# Enable or disable hazard protections
 DHZD_flag = True
 
-# Forwarding+Hazard Units helper variables
+#helper variables
 outFWD_A = 0
 outFWD_B = 0
-
-###
-# File to store simulation registers, control signals and memory
-###
 
 # Program Counter
 PC = 0
@@ -67,14 +59,14 @@ ControlSignals = {0b000000: (0b1, 0b0, 0b0, 0b1, 0b0, 0b0, 0b10),  # R-Type
                   0b101011: (0b0, 0b1, 0b0, 0b0, 0b0, 0b1, 0b00),  # sw
                   0b001000: (0b0, 0b1, 0b0, 0b1, 0b0, 0b0, 0b00)}  # addi
 
-# Convert from string to int
+# encoding the instructions from string to int
 def translate(instruction):
-    instruction = instruction.replace(',', '') # Ignore commas
+    instruction = instruction.replace(',', '')
 
     # Replace register names with its index
     for i in range(len(RegistersALL)):
         instruction = instruction.replace(RegistersALL[i], str(i))
-    instruction = instruction.replace('$', '') # $0, $4, $7, etc.
+    instruction = instruction.replace('$', '')
 
     instruction = instruction.split()
 
@@ -133,7 +125,7 @@ def translate(instruction):
             instruction[2] = instruction[2].split('(')
             instruction[2:] = instruction[2][0], instruction[2][1][:-1]
 
-            rt, offset, rs = [int(i, 0) for i in instruction[1:]] # Accepts any base (e.g. 0b, 0o, 0x)
+            rt, offset, rs = [int(i, 0) for i in instruction[1:]]
         except:
             return argumentERROR # Not correct number of arguments
 
@@ -154,9 +146,9 @@ def translate(instruction):
         out = 0b001000 << 5
 
         try:
-            rt, rs, imm = [int(i, 0) for i in instruction[1:]] # Accepts any base (e.g. 0b, 0o, 0x)
+            rt, rs, imm = [int(i, 0) for i in instruction[1:]]
         except:
-            return argumentERROR # Not correct number of arguments
+            return argumentERROR
 
         # Check for under/overflow
         nrt, nrs, nimm = rt&0x1F, rs&0x1F, imm&0xFFFF
