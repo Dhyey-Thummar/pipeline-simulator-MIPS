@@ -27,8 +27,8 @@ allERRORS = [instERROR, argumentERROR, overinflowERROR]
 DHZD_flag = True
 
 # Forwarding+Hazard Units helper variables
-AforwardFLAG = 0
-BforwardFLAG = 0
+outFWD_A = 0
+outFWD_B = 0
 
 ###
 # File to store simulation registers, control signals and memory

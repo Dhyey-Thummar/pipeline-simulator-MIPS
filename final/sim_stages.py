@@ -19,26 +19,26 @@ def DoForwarding():
 
     # FwdA Multiplexer
     if memory.otherSignals['Afwd'] == 0 or not util.DHZD_flag:
-        util.AforwardFLAG = memory.pipeRegID_EX['valA']
+        util.outFWD_A = memory.pipeRegID_EX['valA']
     elif memory.otherSignals['Afwd'] == 1:
         if memory.ctrlMEM_WB['mem_to_reg'] == 1:
-            util.AforwardFLAG = memory.pipeRegMEM_WB['LMD']
+            util.outFWD_A = memory.pipeRegMEM_WB['LMD']
         else:
-            util.AforwardFLAG = memory.pipeRegMEM_WB['outALU']
+            util.outFWD_A = memory.pipeRegMEM_WB['outALU']
     elif memory.otherSignals['Afwd'] == 2:
-        util.AforwardFLAG = memory.pipeRegEX_MEM['outALU']
+        util.outFWD_A = memory.pipeRegEX_MEM['outALU']
 
     # FwdB Multiplexer
     if memory.otherSignals['Bfwd'] == 0 or not util.DHZD_flag:
-        util.BforwardFLAG = memory.pipeRegID_EX['valB']
+        util.outFWD_B = memory.pipeRegID_EX['valB']
     elif memory.otherSignals['Bfwd'] == 1:
         # MemToReg Multiplexer
         if memory.ctrlMEM_WB['mem_to_reg'] == 1:
-            util.BforwardFLAG = memory.pipeRegMEM_WB['LMD']
+            util.outFWD_B = memory.pipeRegMEM_WB['LMD']
         else:
-            util.BforwardFLAG = memory.pipeRegMEM_WB['outALU']
+            util.outFWD_B = memory.pipeRegMEM_WB['outALU']
     elif memory.otherSignals['Bfwd'] == 2:
-        util.BforwardFLAG = memory.pipeRegEX_MEM['outALU']
+        util.outFWD_B = memory.pipeRegEX_MEM['outALU']
 
 def HazardCheck():
     # Hazard Unit
@@ -139,13 +139,13 @@ def Execute():
     memory.ctrlEX_MEM['mem_write'] = memory.ctrlID_EX['mem_write']
 
     # Set internal ALU source valA
-    a = util.AforwardFLAG
+    a = util.outFWD_A
 
     # Set internal ALU source valB (valB Multiplexer)
     if memory.ctrlID_EX['alu_src'] == 1:
         b = memory.pipeRegID_EX['imm']
     else:
-        b = util.BforwardFLAG
+        b = util.outFWD_B
 
     # Set EX/MEM.Zero (ALU)
     if a - b == 0:
@@ -185,7 +185,7 @@ def Execute():
     memory.pipeRegEX_MEM['outALU'] = out
 
     # Set EX/MEM.valB
-    memory.pipeRegEX_MEM['valB'] = util.BforwardFLAG
+    memory.pipeRegEX_MEM['valB'] = util.outFWD_B
 
     # Set EX/MEM.rd (RegDst Multiplexer)
     if memory.ctrlID_EX['reg_dst'] == 1:
