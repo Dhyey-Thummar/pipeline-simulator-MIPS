@@ -16,14 +16,15 @@ LW, SW and ADDI.
 
 To run the simulator, run the following command:
     
-    ```bash python sim_main.py```
+    python3 simulator.py
 
 ## Features
 
 * Single-cycle, 5-stage pipeline
-* Forwarding
 * Hazard detection
 * Data forwarding
+* Visualization of the pipeline, registers and memory
+
 
 ## Authors
 
